@@ -1,0 +1,550 @@
+package com.example.objetosencontrados
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+
+// ---------- Colores de UNSA EPIS (los mismos del Lab 04) ----------
+val EpisGuinda = Color(0xFF6D1E4A)
+val EpisLila = Color(0xFFEFE2F2)
+val EpisMorado = Color(0xFF8E4A9E)
+val EpisRosa = Color(0xFFF7E4EA)
+val EpisFondo = Color(0xFFF8F5F8)
+val EpisBorde = Color(0xFFE2DCE4)
+val EpisTexto = Color(0xFF2B2230)
+val EpisTextoSec = Color(0xFF756A7A)
+val EpisExito = Color(0xFF2E8A50)
+
+@Composable
+fun EpisTheme(content: @Composable () -> Unit) {
+    MaterialTheme(
+        colorScheme = lightColorScheme(
+            primary = EpisGuinda, onPrimary = Color.White,
+            secondary = EpisMorado, background = EpisFondo, surface = Color.White
+        ),
+        content = content
+    )
+}
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent { EpisTheme { AppUnsaEpis() } }
+    }
+}
+
+// =====================================================================
+// 1. RUTAS: cada pantalla del flujo tiene un nombre único
+// =====================================================================
+sealed class Pantalla(val ruta: String) {
+    object Inicio : Pantalla("inicio")
+    object Reporte : Pantalla("reporte")
+    object Revisar : Pantalla("revisar")
+    object Confirmacion : Pantalla("confirmacion")
+    object MisReportes : Pantalla("mis_reportes")
+}
+
+data class Reporte(val codigo: String, val tipo: String, val ubicacion: String, val estado: String)
+
+// =====================================================================
+// 2. NAVEGACIÓN: NavController (historial) + NavHost (ruta → pantalla)
+// =====================================================================
+@Composable
+fun AppUnsaEpis() {
+    val navController = rememberNavController()
+
+    // Datos del formulario compartidos entre "reporte" y "revisar"
+    var tipoObjeto by rememberSaveable { mutableStateOf("") }
+    var ubicacion by rememberSaveable { mutableStateOf("") }
+    var nota by rememberSaveable { mutableStateOf("") }
+
+    // Reportes registrados (para "Mis reportes")
+    val reportes = remember {
+        mutableStateListOf(
+            Reporte("#OE-20260915-102", "Documentos", "Biblioteca, 2.º piso", "Entregado")
+        )
+    }
+
+    NavHost(navController = navController, startDestination = Pantalla.Inicio.ruta) {
+
+        composable(Pantalla.Inicio.ruta) {
+            PantallaInicioEPIS(
+                onReportar = { navController.navigate(Pantalla.Reporte.ruta) },
+                onMisReportes = { navController.navigate(Pantalla.MisReportes.ruta) }
+            )
+        }
+
+        composable(Pantalla.Reporte.ruta) {
+            PantallaReporteEPIS(
+                tipoObjeto = tipoObjeto, ubicacion = ubicacion, nota = nota,
+                onTipo = { tipoObjeto = it },
+                onUbicacion = { ubicacion = it },
+                onNota = { nota = it },
+                onVolver = { navController.popBackStack() },
+                onContinuar = { navController.navigate(Pantalla.Revisar.ruta) }
+            )
+        }
+
+        composable(Pantalla.Revisar.ruta) {
+            PantallaRevisarEPIS(
+                tipoObjeto = tipoObjeto, ubicacion = ubicacion, nota = nota,
+                onEditar = { navController.popBackStack() },
+                onConfirmar = {
+                    reportes.add(0, Reporte("#OE-20260929-204", tipoObjeto, ubicacion, "Pendiente de entrega"))
+                    // popUpTo("inicio"): el formulario y la revisión salen del historial,
+                    // así el usuario no puede regresar y enviar el mismo reporte dos veces.
+                    navController.navigate(Pantalla.Confirmacion.ruta) {
+                        popUpTo(Pantalla.Inicio.ruta)
+                    }
+                }
+            )
+        }
+
+        composable(Pantalla.Confirmacion.ruta) {
+            PantallaConfirmacionEPIS(
+                codigo = "#OE-20260929-204",
+                onMisReportes = {
+                    tipoObjeto = ""; ubicacion = ""; nota = ""
+                    navController.navigate(Pantalla.MisReportes.ruta) { popUpTo(Pantalla.Inicio.ruta) }
+                },
+                onInicio = {
+                    tipoObjeto = ""; ubicacion = ""; nota = ""
+                    navController.popBackStack(Pantalla.Inicio.ruta, inclusive = false)
+                }
+            )
+        }
+
+        composable(Pantalla.MisReportes.ruta) {
+            PantallaMisReportesEPIS(
+                reportes = reportes,
+                onVolver = { navController.popBackStack() }
+            )
+        }
+    }
+}
+
+// =====================================================================
+// 3. COMPONENTES COMUNES
+// =====================================================================
+
+/** Encabezado guinda con botón de regreso (‹), igual que en el Lab 04. */
+@Composable
+fun EncabezadoEPIS(titulo: String, onVolver: (() -> Unit)?) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(EpisGuinda)
+            .statusBarsPadding()
+            .padding(horizontal = 8.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (onVolver != null) {
+            Text(
+                "‹", color = Color.White, fontSize = 32.sp,
+                modifier = Modifier.clickable { onVolver() }.padding(horizontal = 12.dp)
+            )
+        } else {
+            Spacer(Modifier.size(16.dp))
+        }
+        Column {
+            Text(titulo, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text("UNSA EPIS", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
+        }
+    }
+}
+
+/** Estructura de las pantallas internas: encabezado + contenido con scroll. */
+@Composable
+fun PantallaBaseEPIS(
+    titulo: String,
+    onVolver: (() -> Unit)?,
+    contenido: @Composable ColumnScope.() -> Unit
+) {
+    Column(Modifier.fillMaxSize().background(EpisFondo)) {
+        EncabezadoEPIS(titulo, onVolver)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            content = contenido
+        )
+    }
+}
+
+@Composable
+fun MensajeEPIS(texto: String, color: Color = EpisGuinda) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = EpisLila),
+        shape = RoundedCornerShape(13.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(texto, color = color, fontSize = 14.sp, modifier = Modifier.padding(14.dp))
+    }
+}
+
+@Composable
+fun ServicioEPIS(
+    icono: String, titulo: String, descripcion: String,
+    colorTarjeta: Color, modifier: Modifier = Modifier, onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier.clickable { onClick() },
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = colorTarjeta)
+    ) {
+        Column(Modifier.padding(15.dp)) {
+            Text(icono, fontSize = 27.sp)
+            Spacer(Modifier.height(14.dp))
+            Text(titulo, color = EpisTexto, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Spacer(Modifier.height(5.dp))
+            Text(descripcion, color = EpisTextoSec, fontSize = 12.sp)
+        }
+    }
+}
+
+// =====================================================================
+// 4. PANTALLAS
+// =====================================================================
+
+/** Pantalla 1 – Inicio */
+@Composable
+fun PantallaInicioEPIS(onReportar: () -> Unit, onMisReportes: () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(EpisFondo)
+            .verticalScroll(rememberScrollState())
+            .navigationBarsPadding()
+    ) {
+        // Encabezado grande
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .background(EpisGuinda, RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
+                .statusBarsPadding()
+                .padding(20.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.size(44.dp).background(Color.White, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) { Text("EPIS", color = EpisGuinda, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                Spacer(Modifier.size(12.dp))
+                Column {
+                    Text("UNSA EPIS", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text("Ingeniería de Sistemas", color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp)
+                }
+            }
+            Spacer(Modifier.height(20.dp))
+            Text("¡Hola, estudiante! 💜", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "Un pequeño gesto puede ayudar a alguien. ¿Qué necesitas hacer hoy?",
+                color = Color.White.copy(alpha = 0.9f), fontSize = 14.sp
+            )
+        }
+
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Column {
+                Text("Servicios universitarios", color = EpisTexto, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("Gestiona tus objetos perdidos desde aquí.", color = EpisTextoSec, fontSize = 13.sp)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ServicioEPIS("🔎", "Objetos perdidos", "Reporta un objeto", EpisLila,
+                    Modifier.weight(1f), onClick = onReportar)
+                ServicioEPIS("📋", "Mis reportes", "Consulta tus registros", EpisRosa,
+                    Modifier.weight(1f), onClick = onMisReportes)
+            }
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(3.dp)
+            ) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("¿Encontraste algo?", color = EpisGuinda, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Registra el objeto que encontraste para facilitar su devolución.",
+                        color = EpisTextoSec, fontSize = 14.sp
+                    )
+                    Button(
+                        onClick = onReportar,
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = RoundedCornerShape(13.dp)
+                    ) { Text("Reportar hallazgo  →", fontWeight = FontWeight.Bold) }
+                }
+            }
+            Text(
+                "UNSA EPIS • Comunidad que se cuida", color = EpisTextoSec, fontSize = 11.sp,
+                textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+/** Pantalla 2 – Formulario "Reportar hallazgo" */
+@Composable
+fun PantallaReporteEPIS(
+    tipoObjeto: String, ubicacion: String, nota: String,
+    onTipo: (String) -> Unit, onUbicacion: (String) -> Unit, onNota: (String) -> Unit,
+    onVolver: () -> Unit, onContinuar: () -> Unit
+) {
+    var mensaje by remember { mutableStateOf("") }
+
+    PantallaBaseEPIS(titulo = "Reportar hallazgo", onVolver = onVolver) {
+        Text("Ayúdanos a encontrar a su dueño 💜", color = EpisGuinda, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text("Paso 1 de 2 · Completa los datos del objeto que encontraste.", color = EpisTextoSec, fontSize = 13.sp)
+
+        // Área referencial de la fotografía
+        Box(
+            Modifier.fillMaxWidth().height(110.dp).background(EpisLila, RoundedCornerShape(20.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("📷", fontSize = 28.sp)
+                Text("Fotografía del objeto", color = EpisMorado, fontWeight = FontWeight.Bold)
+                Text("Espacio referencial para la imagen", color = EpisTextoSec, fontSize = 11.sp)
+            }
+        }
+
+        // 1. Tipo de objeto
+        Text("1. Tipo de objeto *", color = EpisTexto, fontWeight = FontWeight.Bold)
+        listOf("Documentos", "Dispositivo electrónico", "Ropa o accesorios", "Otro objeto").forEach { tipo ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(13.dp),
+                colors = CardDefaults.cardColors(containerColor = if (tipoObjeto == tipo) EpisLila else Color.White),
+                border = BorderStroke(1.dp, if (tipoObjeto == tipo) EpisMorado else EpisBorde)
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().clickable { onTipo(tipo); mensaje = "" }
+                        .padding(horizontal = 10.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = tipoObjeto == tipo,
+                        onClick = { onTipo(tipo); mensaje = "" },
+                        colors = RadioButtonDefaults.colors(selectedColor = EpisGuinda)
+                    )
+                    Text(tipo, color = EpisTexto, fontSize = 14.sp)
+                }
+            }
+        }
+
+        // 2. Ubicación
+        Text("2. ¿Dónde lo encontraste? *", color = EpisTexto, fontWeight = FontWeight.Bold)
+        OutlinedTextField(
+            value = ubicacion,
+            onValueChange = { onUbicacion(it); mensaje = "" },
+            placeholder = { Text("Ej. Aula 204, pabellón de Sistemas") },
+            singleLine = true, shape = RoundedCornerShape(13.dp),
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // 3. Nota
+        Text("3. Nota adicional (opcional)", color = EpisTexto, fontWeight = FontWeight.Bold)
+        OutlinedTextField(
+            value = nota, onValueChange = onNota,
+            placeholder = { Text("Describe algún detalle del objeto...") },
+            shape = RoundedCornerShape(13.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 90.dp)
+        )
+
+        Button(
+            onClick = {
+                when {
+                    tipoObjeto.isBlank() -> mensaje = "Selecciona el tipo de objeto."
+                    ubicacion.isBlank() -> mensaje = "Completa la ubicación del hallazgo."
+                    else -> { mensaje = ""; onContinuar() }
+                }
+            },
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            shape = RoundedCornerShape(13.dp)
+        ) { Text("Continuar a revisión", fontWeight = FontWeight.Bold) }
+
+        OutlinedButton(
+            onClick = { mensaje = "Borrador guardado. Puedes continuar luego." },
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            shape = RoundedCornerShape(13.dp)
+        ) { Text("Guardar borrador", color = EpisGuinda) }
+
+        if (mensaje.isNotEmpty()) MensajeEPIS(mensaje)
+    }
+}
+
+/** Pantalla 3 – Revisar antes de enviar */
+@Composable
+fun PantallaRevisarEPIS(
+    tipoObjeto: String, ubicacion: String, nota: String,
+    onEditar: () -> Unit, onConfirmar: () -> Unit
+) {
+    PantallaBaseEPIS(titulo = "Revisar reporte", onVolver = onEditar) {
+        Text("Paso 2 de 2 · Verifica los datos antes de enviar.", color = EpisTextoSec, fontSize = 13.sp)
+        Card(
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            border = BorderStroke(1.dp, EpisBorde),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                FilaDato("Tipo de objeto", tipoObjeto)
+                FilaDato("Ubicación", ubicacion)
+                FilaDato("Nota", nota.ifBlank { "—" })
+                FilaDato("Fecha y hora", "Automática")
+            }
+        }
+        Button(
+            onClick = onConfirmar,
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            shape = RoundedCornerShape(13.dp)
+        ) { Text("Confirmar y enviar", fontWeight = FontWeight.Bold) }
+        OutlinedButton(
+            onClick = onEditar,
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            shape = RoundedCornerShape(13.dp)
+        ) { Text("Editar datos", color = EpisGuinda) }
+    }
+}
+
+@Composable
+fun FilaDato(etiqueta: String, valor: String) {
+    Column {
+        Text(etiqueta, color = EpisTextoSec, fontSize = 12.sp)
+        Text(valor, color = EpisTexto, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+/** Pantalla 4 – Confirmación */
+@Composable
+fun PantallaConfirmacionEPIS(codigo: String, onMisReportes: () -> Unit, onInicio: () -> Unit) {
+    PantallaBaseEPIS(titulo = "Reporte enviado", onVolver = null) {
+        Spacer(Modifier.height(8.dp))
+        Box(
+            Modifier.size(72.dp).background(EpisExito, CircleShape).align(Alignment.CenterHorizontally),
+            contentAlignment = Alignment.Center
+        ) { Text("✓", color = Color.White, fontSize = 36.sp, fontWeight = FontWeight.Bold) }
+        Text(
+            "¡Reporte registrado!", color = EpisExito, fontSize = 22.sp, fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()
+        )
+        Card(
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = EpisLila),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(Modifier.padding(18.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Código del reporte", color = EpisTextoSec, fontSize = 13.sp)
+                Text(codigo, color = EpisGuinda, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+        Text(
+            "Entrega el objeto en Vigilancia · Pabellón B y muestra este código.",
+            color = EpisTexto, fontSize = 15.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()
+        )
+        Button(
+            onClick = onMisReportes,
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            shape = RoundedCornerShape(13.dp)
+        ) { Text("Ver mis reportes", fontWeight = FontWeight.Bold) }
+        OutlinedButton(
+            onClick = onInicio,
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            shape = RoundedCornerShape(13.dp)
+        ) { Text("Volver al inicio", color = EpisGuinda) }
+    }
+}
+
+/** Pantalla 5 – Mis reportes (el Estudiante 3 la amplía con el patrón lista-detalle) */
+@Composable
+fun PantallaMisReportesEPIS(reportes: List<Reporte>, onVolver: () -> Unit) {
+    PantallaBaseEPIS(titulo = "Mis reportes", onVolver = onVolver) {
+        if (reportes.isEmpty()) {
+            MensajeEPIS("Aún no tienes reportes registrados.", EpisTextoSec)
+        }
+        reportes.forEach { r ->
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, EpisBorde),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("${r.tipo} · ${r.ubicacion}", color = EpisTexto, fontWeight = FontWeight.Bold)
+                    Text(r.codigo, color = EpisTextoSec, fontSize = 13.sp)
+                    Text(
+                        if (r.estado == "Entregado") "✓ Entregado" else "⏱ ${r.estado}",
+                        color = if (r.estado == "Entregado") EpisExito else EpisMorado,
+                        fontSize = 13.sp, fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+        OutlinedButton(
+            onClick = onVolver,
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            shape = RoundedCornerShape(13.dp)
+        ) { Text("Volver", color = EpisGuinda) }
+    }
+}
+
+// =====================================================================
+// 5. VISTA PREVIA – activa "Interactive Mode" para navegar sin emulador
+// =====================================================================
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun AppPreview() {
+    EpisTheme { AppUnsaEpis() }
+}

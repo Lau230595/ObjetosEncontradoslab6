@@ -1,0 +1,77 @@
+package com.example.objetosencontrados
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import com.example.objetosencontrados.ui.theme.ObjetosEncontradosTheme
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent {
+            ObjetosEncontradosTheme {
+                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    VistaTema(modifier = Modifier.padding(innerPadding))
+                }
+            }
+        }
+    }
+}
+
+// Vista de prueba del sistema visual de la Guía 03
+// (las pantallas reales las implementan los Estudiantes 2 y 3)
+@Composable
+fun VistaTema(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text("Campus App", style = MaterialTheme.typography.bodyMedium)
+        Text("Objetos encontrados", style = MaterialTheme.typography.headlineMedium)
+        Text(
+            "¿Encontraste un objeto? Ayuda a devolverlo a su dueño registrándolo aquí.",
+            style = MaterialTheme.typography.bodyLarge
+        )
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp)) {
+                Text("Cómo funciona", style = MaterialTheme.typography.titleMedium)
+                Text("1. Registra el objeto con una foto.", style = MaterialTheme.typography.bodyMedium)
+                Text("2. Recibe un código QR.", style = MaterialTheme.typography.bodyMedium)
+                Text("3. Entrégalo en vigilancia de tu pabellón.", style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+        Button(onClick = { }, modifier = Modifier.fillMaxWidth()) {
+            Text("Reportar objeto encontrado")
+        }
+        OutlinedButton(onClick = { }, modifier = Modifier.fillMaxWidth()) {
+            Text("Mis reportes")
+        }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun VistaTemaPreview() {
+    ObjetosEncontradosTheme {
+        VistaTema()
+    }
+}
